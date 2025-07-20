@@ -11,6 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { API_ENDPOINTS } from '@/constants/ApiConfig';
 
 export default function SignupScreen() {
   const [signupName, setSignupName] = useState('');
@@ -34,7 +35,7 @@ export default function SignupScreen() {
       return;
     }
     try {
-      const response = await fetch('http://localhost:8080/api/users', {
+      const response = await fetch(API_ENDPOINTS.USERS, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: signupName, email: signupEmail, password: signupPassword }),
@@ -50,7 +51,8 @@ export default function SignupScreen() {
         router.replace('/login');
       }, 1200);
     } catch (err) {
-      setError('Network error.');
+      setError('Network error. Make sure the backend server is running.');
+      console.error('Signup error:', err);
     }
   };
 

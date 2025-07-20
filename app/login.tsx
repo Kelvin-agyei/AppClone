@@ -11,6 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { API_ENDPOINTS } from '@/constants/ApiConfig';
 
 export default function LoginScreen() {
   const [loginEmail, setLoginEmail] = useState('');
@@ -26,7 +27,7 @@ export default function LoginScreen() {
       return;
     }
     try {
-      const response = await fetch('http://localhost:8080/api/users/login', {
+      const response = await fetch(API_ENDPOINTS.LOGIN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: loginEmail, password: loginPassword }),
@@ -39,7 +40,8 @@ export default function LoginScreen() {
       // Success
       router.replace('/(tabs)/home');
     } catch (err) {
-      setError('Network error.');
+      setError('Network error. Make sure the backend server is running.');
+      console.error('Login error:', err);
     }
   };
 
