@@ -11,6 +11,7 @@ export const API_BASE_URL = 'http://localhost:8080';
 
 export const API_ENDPOINTS = {
   USERS: `${API_BASE_URL}/api/users`,
+  SIGNUP: `${API_BASE_URL}/api/users/signup`,
   LOGIN: `${API_BASE_URL}/api/users/login`,
   TEST: `${API_BASE_URL}/api/users/test`,
 };

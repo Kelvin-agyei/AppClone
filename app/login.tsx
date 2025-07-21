@@ -11,7 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { supabase } from '@/lib/supabase';
+import { API_ENDPOINTS } from '@/constants/ApiConfig';
 
 export default function LoginScreen() {
   const [loginEmail, setLoginEmail] = useState('');
@@ -32,24 +32,33 @@ export default function LoginScreen() {
     }
 
     try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email: loginEmail,
-        password: loginPassword,
+      const response = await fetch(API_ENDPOINTS.LOGIN, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: loginEmail,
+          password: loginPassword,
+        }),
       });
 
-      if (signInError) {
-        setError(signInError.message);
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || 'Login failed. Please try again.');
         setLoading(false);
         return;
       }
 
-      if (data.user) {
+      if (data.success) {
         // Successfully logged in
+        console.log('Login successful:', data.user);
         router.replace('/(tabs)/home');
       }
     } catch (err) {
-      setError('An unexpected error occurred. Please try again.');
       console.error('Login error:', err);
+      setError('Network error. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }

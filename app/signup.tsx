@@ -12,7 +12,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { supabase } from '@/lib/supabase';
+import { API_ENDPOINTS } from '@/constants/ApiConfig';
 
 export default function SignupScreen() {
   const [signupName, setSignupName] = useState('');
@@ -48,23 +48,27 @@ export default function SignupScreen() {
     }
 
     try {
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email: signupEmail,
-        password: signupPassword,
-        options: {
-          data: {
-            name: signupName,
-          },
+      const response = await fetch(API_ENDPOINTS.SIGNUP, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          name: signupName,
+          email: signupEmail,
+          password: signupPassword,
+        }),
       });
 
-      if (signUpError) {
-        setError(signUpError.message);
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || 'Signup failed. Please try again.');
         setLoading(false);
         return;
       }
 
-      if (data.user) {
+      if (data.success) {
         Alert.alert(
           'Success!',
           'Account created successfully! You can now log in.',
@@ -77,8 +81,8 @@ export default function SignupScreen() {
         );
       }
     } catch (err) {
-      setError('An unexpected error occurred. Please try again.');
       console.error('Signup error:', err);
+      setError('Network error. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
