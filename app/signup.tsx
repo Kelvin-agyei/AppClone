@@ -31,6 +31,7 @@ export default function SignupScreen() {
     setIsTestingConnection(true);
     setError('');
     try {
+    }
     try {
       const result = await testBackendConnection();
       Alert.alert('Success!', `Backend is connected! Users in DB: ${result.userCount}`);
