@@ -12,7 +12,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { API_ENDPOINTS } from '@/constants/ApiConfig';
+import { API_ENDPOINTS, testBackendConnection } from '@/constants/ApiConfig';
 
 export default function SignupScreen() {
   const [signupName, setSignupName] = useState('');
@@ -23,7 +23,24 @@ export default function SignupScreen() {
   const [showSignupConfirm, setShowSignupConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
   const router = useRouter();
+
+  // Test backend connection
+  const handleTestConnection = async () => {
+    setIsTestingConnection(true);
+    setError('');
+    try {
+    try {
+      const result = await testBackendConnection();
+      Alert.alert('Success!', `Backend is connected! Users in DB: ${result.userCount}`);
+    } catch (err) {
+      console.error('Connection test failed:', err);
+      setError(`Backend connection failed. Make sure your Spring Boot server is running on ${getApiUrl()}`);
+    } finally {
+      setIsTestingConnection(false);
+    }
+  };
 
   const handleSignup = async () => {
     setError('');
@@ -48,6 +65,7 @@ export default function SignupScreen() {
     }
 
     try {
+      console.log('Attempting signup to:', API_ENDPOINTS.SIGNUP);
       const response = await fetch(API_ENDPOINTS.SIGNUP, {
         method: 'POST',
         headers: {
@@ -60,7 +78,9 @@ export default function SignupScreen() {
         }),
       });
 
+      console.log('Signup response status:', response.status);
       const data = await response.json();
+      console.log('Signup response data:', data);
 
       if (!response.ok) {
         setError(data.error || 'Signup failed. Please try again.');
@@ -82,7 +102,7 @@ export default function SignupScreen() {
       }
     } catch (err) {
       console.error('Signup error:', err);
-      setError('Network error. Please check your connection and try again.');
+      setError(`Network error: ${err.message}. Make sure your backend is running on ${getApiUrl()}`);
     } finally {
       setLoading(false);
     }
@@ -100,6 +120,16 @@ export default function SignupScreen() {
       <ScrollView contentContainerStyle={styles.outerContainer} keyboardShouldPersistTaps="handled">
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Create Account</Text>
+          
+          <TouchableOpacity
+            style={[styles.testButton, isTestingConnection && styles.buttonDisabled]}
+            onPress={handleTestConnection}
+            disabled={isTestingConnection || loading}
+          >
+            <Text style={styles.testButtonText}>
+              {isTestingConnection ? 'Testing...' : 'Test Backend Connection'}
+            </Text>
+          </TouchableOpacity>
           
           <Text style={styles.label}>Full Name</Text>
           <TextInput
@@ -243,6 +273,20 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     backgroundColor: '#fff',
     fontSize: 16,
+  },
+  testButton: {
+    backgroundColor: '#f0f0f0',
+    paddingVertical: 10,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  testButtonText: {
+    color: '#666',
+    fontWeight: '600',
+    fontSize: 14,
   },
   passwordRow: {
     flexDirection: 'row',
