@@ -11,42 +11,56 @@ import {
   ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { API_ENDPOINTS } from '@/constants/ApiConfig';
+import { supabase } from '@/lib/supabase';
 
 export default function LoginScreen() {
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
 
   const handleLogin = async () => {
     setError('');
+    setLoading(true);
+
     if (!loginEmail || !loginPassword) {
       setError('Please enter both email and password.');
+      setLoading(false);
       return;
     }
+
     try {
-      const response = await fetch(API_ENDPOINTS.LOGIN, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: loginEmail, password: loginPassword }),
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: loginEmail,
+        password: loginPassword,
       });
-      if (!response.ok) {
-        const msg = await response.text();
-        setError(msg || 'Login failed.');
+
+      if (signInError) {
+        setError(signInError.message);
+        setLoading(false);
         return;
       }
-      // Success
-      router.replace('/(tabs)/home');
+
+      if (data.user) {
+        // Successfully logged in
+        router.replace('/(tabs)/home');
+      }
     } catch (err) {
-      setError('Network error. Make sure the backend server is running.');
+      setError('An unexpected error occurred. Please try again.');
       console.error('Login error:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
   const goToSignup = () => {
     router.replace('/signup');
+  };
+
+  const continueAsGuest = () => {
+    router.replace('/(tabs)/home');
   };
 
   return (
@@ -57,16 +71,19 @@ export default function LoginScreen() {
       <ScrollView contentContainerStyle={styles.outerContainer} keyboardShouldPersistTaps="handled">
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Log In</Text>
-          <Text style={styles.label}>Email or Username</Text>
+          
+          <Text style={styles.label}>Email</Text>
           <TextInput
             style={styles.input}
-            placeholder="Enter your email or username"
+            placeholder="Enter your email"
             value={loginEmail}
             onChangeText={setLoginEmail}
             autoCapitalize="none"
             keyboardType="email-address"
             textContentType="username"
+            editable={!loading}
           />
+          
           <Text style={styles.label}>Password</Text>
           <View style={styles.passwordRow}>
             <TextInput
@@ -76,31 +93,52 @@ export default function LoginScreen() {
               onChangeText={setLoginPassword}
               secureTextEntry={!showLoginPassword}
               textContentType="password"
+              editable={!loading}
             />
             <Pressable
               onPress={() => setShowLoginPassword((v) => !v)}
               style={styles.eyeButton}
+              disabled={loading}
             >
-              <Text style={{ color: '#8000ff', fontWeight: 'bold' }}>{showLoginPassword ? '🙈' : '👁️'}</Text>
+              <Text style={{ color: '#8000ff', fontWeight: 'bold' }}>
+                {showLoginPassword ? '🙈' : '👁️'}
+              </Text>
             </Pressable>
           </View>
+          
           <TouchableOpacity style={styles.forgotPasswordContainer}>
             <Text style={styles.forgotPasswordText}>Forgot password?</Text>
           </TouchableOpacity>
+          
           <TouchableOpacity
-            style={[styles.loginButton]}
+            style={[
+              styles.loginButton,
+              loading && styles.buttonDisabled
+            ]}
             onPress={handleLogin}
+            disabled={loading}
           >
-            <Text style={styles.loginButtonText}>Log In</Text>
+            <Text style={styles.loginButtonText}>
+              {loading ? 'Logging In...' : 'Log In'}
+            </Text>
           </TouchableOpacity>
-          {error ? <Text style={{ color: 'red', marginTop: 8 }}>{error}</Text> : null}
-          <TouchableOpacity onPress={goToSignup} style={styles.switchAuthButton}>
-            <Text style={styles.switchAuthText}>Don't have an account? <Text style={{color:'#8000ff', fontWeight:'bold'}}>Create Account</Text></Text>
+          
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          
+          <TouchableOpacity 
+            onPress={goToSignup} 
+            style={styles.switchAuthButton}
+            disabled={loading}
+          >
+            <Text style={styles.switchAuthText}>
+              Don't have an account? <Text style={styles.linkText}>Create Account</Text>
+            </Text>
           </TouchableOpacity>
-          {/* Add a button to go directly to the main app */}
+          
           <TouchableOpacity
             style={styles.guestButton}
-            onPress={() => router.replace('/(tabs)/home')}
+            onPress={continueAsGuest}
+            disabled={loading}
           >
             <Text style={styles.guestButtonText}>Continue as Guest</Text>
           </TouchableOpacity>
@@ -194,8 +232,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
   },
-  buttonPressed: {
-    backgroundColor: '#6b00b3',
+  buttonDisabled: {
+    backgroundColor: '#ccc',
+    shadowOpacity: 0,
+  },
+  errorText: {
+    color: 'red',
+    marginTop: 8,
+    textAlign: 'center',
+    fontSize: 14,
   },
   switchAuthButton: {
     marginTop: 16,
@@ -204,6 +249,10 @@ const styles = StyleSheet.create({
   switchAuthText: {
     color: '#555',
     fontSize: 15,
+  },
+  linkText: {
+    color: '#8000ff',
+    fontWeight: 'bold',
   },
   guestButton: {
     marginTop: 16,

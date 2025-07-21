@@ -9,9 +9,10 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { API_ENDPOINTS } from '@/constants/ApiConfig';
+import { supabase } from '@/lib/supabase';
 
 export default function SignupScreen() {
   const [signupName, setSignupName] = useState('');
@@ -20,39 +21,66 @@ export default function SignupScreen() {
   const [signupConfirm, setSignupConfirm] = useState('');
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [showSignupConfirm, setShowSignupConfirm] = useState(false);
-  const [signupSuccess, setSignupSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
 
   const handleSignup = async () => {
     setError('');
+    setLoading(true);
+
     if (!signupName || !signupEmail || !signupPassword || !signupConfirm) {
       setError('Please fill in all fields.');
+      setLoading(false);
       return;
     }
+
     if (signupPassword !== signupConfirm) {
       setError('Passwords do not match.');
+      setLoading(false);
       return;
     }
+
+    if (signupPassword.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      setLoading(false);
+      return;
+    }
+
     try {
-      const response = await fetch(API_ENDPOINTS.USERS, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: signupName, email: signupEmail, password: signupPassword }),
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: signupEmail,
+        password: signupPassword,
+        options: {
+          data: {
+            name: signupName,
+          },
+        },
       });
-      if (!response.ok) {
-        const msg = await response.text();
-        setError(msg || 'Signup failed.');
+
+      if (signUpError) {
+        setError(signUpError.message);
+        setLoading(false);
         return;
       }
-      setSignupSuccess(true);
-      setTimeout(() => {
-        setSignupSuccess(false);
-        router.replace('/login');
-      }, 1200);
+
+      if (data.user) {
+        Alert.alert(
+          'Success!',
+          'Account created successfully! You can now log in.',
+          [
+            {
+              text: 'OK',
+              onPress: () => router.replace('/login'),
+            },
+          ]
+        );
+      }
     } catch (err) {
-      setError('Network error. Make sure the backend server is running.');
+      setError('An unexpected error occurred. Please try again.');
       console.error('Signup error:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -68,6 +96,7 @@ export default function SignupScreen() {
       <ScrollView contentContainerStyle={styles.outerContainer} keyboardShouldPersistTaps="handled">
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Create Account</Text>
+          
           <Text style={styles.label}>Full Name</Text>
           <TextInput
             style={styles.input}
@@ -75,7 +104,9 @@ export default function SignupScreen() {
             value={signupName}
             onChangeText={setSignupName}
             autoCapitalize="words"
+            editable={!loading}
           />
+          
           <Text style={styles.label}>Email Address</Text>
           <TextInput
             style={styles.input}
@@ -85,24 +116,31 @@ export default function SignupScreen() {
             autoCapitalize="none"
             keyboardType="email-address"
             textContentType="emailAddress"
+            editable={!loading}
           />
+          
           <Text style={styles.label}>Password</Text>
           <View style={styles.passwordRow}>
             <TextInput
               style={[styles.input, { flex: 1 }]}
-              placeholder="Create a password"
+              placeholder="Create a password (min 6 characters)"
               value={signupPassword}
               onChangeText={setSignupPassword}
               secureTextEntry={!showSignupPassword}
               textContentType="newPassword"
+              editable={!loading}
             />
             <Pressable
               onPress={() => setShowSignupPassword((v) => !v)}
               style={({ pressed }) => [styles.eyeButton, pressed && { opacity: 0.6 }]}
+              disabled={loading}
             >
-              <Text style={{ color: '#8000ff', fontWeight: 'bold' }}>{showSignupPassword ? '🙈' : '👁️'}</Text>
+              <Text style={{ color: '#8000ff', fontWeight: 'bold' }}>
+                {showSignupPassword ? '🙈' : '👁️'}
+              </Text>
             </Pressable>
           </View>
+          
           <Text style={styles.label}>Confirm Password</Text>
           <View style={styles.passwordRow}>
             <TextInput
@@ -112,26 +150,42 @@ export default function SignupScreen() {
               onChangeText={setSignupConfirm}
               secureTextEntry={!showSignupConfirm}
               textContentType="newPassword"
+              editable={!loading}
             />
             <Pressable
               onPress={() => setShowSignupConfirm((v) => !v)}
               style={({ pressed }) => [styles.eyeButton, pressed && { opacity: 0.6 }]}
+              disabled={loading}
             >
-              <Text style={{ color: '#8000ff', fontWeight: 'bold' }}>{showSignupConfirm ? '🙈' : '👁️'}</Text>
+              <Text style={{ color: '#8000ff', fontWeight: 'bold' }}>
+                {showSignupConfirm ? '🙈' : '👁️'}
+              </Text>
             </Pressable>
           </View>
+          
           <TouchableOpacity
-            style={({ pressed }) => [styles.signupButton, pressed && styles.buttonPressed]}
+            style={[
+              styles.signupButton,
+              loading && styles.buttonDisabled
+            ]}
             onPress={handleSignup}
+            disabled={loading}
           >
-            <Text style={styles.signupButtonText}>Sign Up</Text>
+            <Text style={styles.signupButtonText}>
+              {loading ? 'Creating Account...' : 'Sign Up'}
+            </Text>
           </TouchableOpacity>
-          {error ? <Text style={{ color: 'red', marginTop: 8 }}>{error}</Text> : null}
-          {signupSuccess && (
-            <Text style={styles.successText}>Account created! Please log in.</Text>
-          )}
-          <TouchableOpacity onPress={goToLogin} style={styles.switchAuthButton}>
-            <Text style={styles.switchAuthText}>Already have an account? <Text style={{color:'#8000ff', fontWeight:'bold'}}>Log In</Text></Text>
+          
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          
+          <TouchableOpacity 
+            onPress={goToLogin} 
+            style={styles.switchAuthButton}
+            disabled={loading}
+          >
+            <Text style={styles.switchAuthText}>
+              Already have an account? <Text style={styles.linkText}>Log In</Text>
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -213,15 +267,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
   },
-  buttonPressed: {
-    backgroundColor: '#6b00b3',
+  buttonDisabled: {
+    backgroundColor: '#ccc',
+    shadowOpacity: 0,
   },
-  successText: {
-    color: '#8000ff',
-    fontWeight: '700',
+  errorText: {
+    color: 'red',
+    marginTop: 8,
     textAlign: 'center',
-    marginTop: 12,
-    fontSize: 16,
+    fontSize: 14,
   },
   switchAuthButton: {
     marginTop: 16,
@@ -231,4 +285,8 @@ const styles = StyleSheet.create({
     color: '#555',
     fontSize: 15,
   },
-}); 
+  linkText: {
+    color: '#8000ff',
+    fontWeight: 'bold',
+  },
+});
